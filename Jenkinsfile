@@ -1,13 +1,13 @@
 pipeline {
-environment { // Declaration of environment variables
-DOCKER_ID = "henryfoster" // replace this with your docker-id
+environment { 
+DOCKER_ID = "henryfoster" 
 DOCKER_IMAGE_MOVIE = "movie-service"
 DOCKER_IMAGE_CAST = "cast-service"
-DOCKER_TAG = "v.${BUILD_ID}.0" // we will tag our images with the current build in order to increment the value by 1 with each new build
+DOCKER_TAG = "v.${BUILD_ID}.0" 
 }
-agent any // Jenkins will be able to select all available agents
+agent any 
 stages {
-        stage('Docker Build'){ // docker build image stage
+        stage('Docker Build'){ 
             steps {
                 script {
                 sh '''
@@ -26,10 +26,10 @@ stages {
             }
         
         }
-        stage(' Docker run'){ // run container from our built image
+        stage(' Docker run'){ 
             environment
             {
-                DATABASE_URL_MOVIE = credentials("DATABASE_URL_MOVIE") // retrieve database URL from Jenkins secret
+                DATABASE_URL_MOVIE = credentials("DATABASE_URL_MOVIE")  
                 DATABASE_URL_CAST = credentials("DATABASE_URL_CAST")
             }
                 steps {
@@ -50,16 +50,16 @@ stages {
                 }
             }
 
-        stage('Test Acceptance'){ // we launch the curl command to validate that the container responds to the request
+        stage('Test Acceptance'){ 
             steps {
                 sh 'curl localhost:8002/api/v1/casts/docs'
                 sh 'curl localhost:8001/api/v1/movies/docs'
             }
         }
-        stage('Docker Push'){ //we pass the built image to our docker hub account
+        stage('Docker Push'){ 
             environment
             {
-                DOCKER_PASS = credentials("DOCKER_HUB_PASS") // we retrieve docker password from secret text called docker_hub_pass saved on jenkins
+                DOCKER_PASS = credentials("DOCKER_HUB_PASS")  
             }
 
             steps {
@@ -78,8 +78,8 @@ stages {
 stage('Deployment in dev'){
         environment
         {
-        KUBECONFIG = credentials("config") // we retrieve kubeconfig from secret file called config saved on jenkins
-        DATABASE_URL_MOVIE = credentials("DATABASE_URL_MOVIE") // retrieve database URL from Jenkins secret
+        KUBECONFIG = credentials("config")  
+        DATABASE_URL_MOVIE = credentials("DATABASE_URL_MOVIE")  
         DATABASE_URL_CAST = credentials("DATABASE_URL_CAST")
         CAST_SERVICE_HOST_URL = "http://cast-service/api/v1/casts/"
         }
@@ -114,11 +114,50 @@ stage('Deployment in dev'){
             }
 
         }
+stage('Deployment in QA'){
+        environment
+        {
+        KUBECONFIG = credentials("config") 
+        DATABASE_URL_MOVIE = credentials("DATABASE_URL_MOVIE")  
+        DATABASE_URL_CAST = credentials("DATABASE_URL_CAST")
+        CAST_SERVICE_HOST_URL = "http://cast-service/api/v1/casts/"
+        }
+            steps {
+                script {
+                sh '''
+                rm -Rf .kube
+                mkdir .kube
+                ls
+                cat $KUBECONFIG > .kube/config
+                cp charts/values.yaml values.yml
+                cat values.yml
+                sed -i "s+tag.*+tag: ${DOCKER_TAG}+g" values.yml
+                helm upgrade --install movie ./charts --values=values.yml \
+                  --set image.repository=$DOCKER_ID/$DOCKER_IMAGE_MOVIE \
+                  --set image.tag=$DOCKER_TAG \
+                  --set env[0].name=DATABASE_URI --set env[0].value="$DATABASE_URL_MOVIE" \
+                  --set env[1].name=CAST_SERVICE_HOST_URL --set env[1].value="$CAST_SERVICE_HOST_URL" \
+                  --set ingress.hosts[0].paths[0].path=/api/v1/movies \
+                  --set ingress.hosts[0].paths[0].pathType=Prefix \
+                  --namespace qa
+                helm upgrade --install cast ./charts --values=values.yml \
+                  --set image.repository=$DOCKER_ID/$DOCKER_IMAGE_CAST \
+                  --set image.tag=$DOCKER_TAG \
+                  --set env[0].name=DATABASE_URI --set env[0].value="$DATABASE_URL_CAST" \
+                  --set fullnameOverride=cast-service \
+                  --set ingress.hosts[0].paths[0].path=/api/v1/casts \
+                  --set ingress.hosts[0].paths[0].pathType=Prefix \
+                  --namespace qa
+                '''
+                }
+            }
+
+        }
 stage('Deploiement en staging'){
         environment
         {
-        KUBECONFIG = credentials("config") // we retrieve kubeconfig from secret file called config saved on jenkins
-        DATABASE_URL_MOVIE = credentials("DATABASE_URL_MOVIE") // retrieve database URL from Jenkins secret
+        KUBECONFIG = credentials("config")  
+        DATABASE_URL_MOVIE = credentials("DATABASE_URL_MOVIE")  
         DATABASE_URL_CAST = credentials("DATABASE_URL_CAST")
         CAST_SERVICE_HOST_URL = "http://cast-service/api/v1/casts/"
         }
@@ -155,18 +194,17 @@ stage('Deploiement en staging'){
         }
   stage('Deploiement en prod'){
         when {
-            branch 'master'
+            expression { env.BRANCH_NAME == 'master' }
         }
+
         environment
         {
-        KUBECONFIG = credentials("config") // we retrieve kubeconfig from secret file called config saved on jenkins
-        DATABASE_URL_MOVIE = credentials("DATABASE_URL_MOVIE") // retrieve database URL from Jenkins secret
+        KUBECONFIG = credentials("config")  
+        DATABASE_URL_MOVIE = credentials("DATABASE_URL_MOVIE")  
         DATABASE_URL_CAST = credentials("DATABASE_URL_CAST")
         CAST_SERVICE_HOST_URL = "http://cast-service/api/v1/casts/"
         }
             steps {
-            // Create an Approval Button with a timeout of 15minutes.
-            // this require a manuel validation in order to deploy on production environment
                     timeout(time: 15, unit: "MINUTES") {
                         input message: 'Do you want to deploy in production ?', ok: 'Yes'
                     }
@@ -203,8 +241,8 @@ stage('Deploiement en staging'){
         }
 
 }
-post { // send email when the job has failed
-    // ..
+post { 
+
     failure {
         echo "This will run if the job failed"
         mail to: "pikatchugengar@gmail.com",
@@ -217,6 +255,5 @@ post { // send email when the job has failed
              subject: "${env.JOB_NAME} - Build # ${env.BUILD_ID} has succeeded",
              body: "For more info on the pipeline success, check out the console output at ${env.BUILD_URL}"
     }
-    // ..
 }
 }
