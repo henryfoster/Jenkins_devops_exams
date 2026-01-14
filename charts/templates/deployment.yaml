@@ -49,14 +49,18 @@ spec:
             - name: http
               containerPort: 8000
               protocol: TCP
+          {{- if .Values.livenessProbe.enabled }}
           livenessProbe:
             httpGet:
-              path: /api/v1/checkapi
+              path: {{ .Values.livenessProbe.path }}
               port: http
+          {{- end }}
+          {{- if .Values.readinessProbe.enabled }}
           readinessProbe:
             httpGet:
-              path: /api/v1/checkapi
+              path: {{ .Values.readinessProbe.path }}
               port: http
+          {{- end }}
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
       {{- with .Values.nodeSelector }}

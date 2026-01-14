@@ -24,6 +24,14 @@ args:
 
 env: []
 
+livenessProbe:
+  enabled: false
+  path: /health
+
+readinessProbe:
+  enabled: false
+  path: /health
+
 imagePullSecrets: []
 nameOverride: ""
 fullnameOverride: ""
