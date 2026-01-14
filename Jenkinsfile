@@ -194,7 +194,7 @@ stage('Deploiement en staging'){
         }
   stage('Deploiement en prod'){
         when {
-            expression { env.BRANCH_NAME == 'master' }
+            expression { env.GIT_BRANCH == 'origin/master' }
         }
 
         environment
