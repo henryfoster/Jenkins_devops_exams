@@ -7,7 +7,7 @@ from databases import Database
 
 DATABASE_URI = os.getenv('DATABASE_URI')
 
-engine = create_engine(DATABASE_URI)
+engine = create_engine(DATABASE_URI, pool_size=2, max_overflow=0)
 metadata = MetaData()
 
 movies = Table(
@@ -20,4 +20,4 @@ movies = Table(
     Column('casts_id', ARRAY(Integer))
 )
 
-database = Database(DATABASE_URI)
+database = Database(DATABASE_URI, min_size=1, max_size=2)

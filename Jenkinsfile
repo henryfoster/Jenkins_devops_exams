@@ -36,14 +36,14 @@ stages {
                     script {
                     sh '''
                     docker rm -f $DOCKER_IMAGE_MOVIE
-                    docker run -d -p 80:8000 -e DATABASE_URL=$DATABASE_URL_MOVIE --name $DOCKER_IMAGE_MOVIE $DOCKER_ID/$DOCKER_IMAGE_MOVIE:$DOCKER_TAG uvicorn app.main:app --host 0.0.0.0 --port 8000 --loop asyncio
+                    docker run -d -p 8001:8000 -e DATABASE_URI=$DATABASE_URL_MOVIE --name $DOCKER_IMAGE_MOVIE $DOCKER_ID/$DOCKER_IMAGE_MOVIE:$DOCKER_TAG uvicorn app.main:app --host 0.0.0.0 --port 8000 --loop asyncio
                     sleep 10
                     '''
                     }
                     script {
                     sh '''
                     docker rm -f $DOCKER_IMAGE_CAST
-                    docker run -d -p 81:8000 -e DATABASE_URL=$DATABASE_URL_CAST --name $DOCKER_IMAGE_CAST $DOCKER_ID/$DOCKER_IMAGE_CAST:$DOCKER_TAG uvicorn app.main:app --host 0.0.0.0 --port 8000 --loop asyncio
+                    docker run -d -p 8002:8000 -e DATABASE_URI=$DATABASE_URL_CAST --name $DOCKER_IMAGE_CAST $DOCKER_ID/$DOCKER_IMAGE_CAST:$DOCKER_TAG uvicorn app.main:app --host 0.0.0.0 --port 8000 --loop asyncio
                     sleep 10
                     '''
                     }
@@ -52,8 +52,8 @@ stages {
 
         stage('Test Acceptance'){ // we launch the curl command to validate that the container responds to the request
             steps {
-                sh 'curl localhost:81'
-                sh 'curl localhost:80'
+                sh 'curl localhost:8002/api/v1/casts/docs'
+                sh 'curl localhost:8001/api/v1/movies/docs'
             }
         }
         stage('Docker Push'){ //we pass the built image to our docker hub account
@@ -154,6 +154,9 @@ stage('Deploiement en staging'){
 
         }
   stage('Deploiement en prod'){
+        when {
+            branch 'master'
+        }
         environment
         {
         KUBECONFIG = credentials("config") // we retrieve kubeconfig from secret file called config saved on jenkins
